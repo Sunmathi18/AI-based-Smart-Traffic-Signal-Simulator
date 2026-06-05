@@ -1,0 +1,57 @@
+// ================================================
+// PHASE 1: Basic Traffic Signal - Fixed Timing
+// 4 Roads: North, South, East, West
+// Each road: 3 LEDs (RED, YELLOW, GREEN)
+// ================================================
+
+// --- PIN DEFINITIONS ---
+const int N_RED = 2;  const int N_YEL = 3;  const int N_GRN = 4;
+const int S_RED = 5;  const int S_YEL = 6;  const int S_GRN = 7;
+const int E_RED = 8;  const int E_YEL = 9;  const int E_GRN = 10;
+const int W_RED = 11; const int W_YEL = 12; const int W_GRN = 13;
+
+void setup() {
+  // Set all 12 LED pins as OUTPUT
+  pinMode(N_RED,OUTPUT); pinMode(N_YEL,OUTPUT); pinMode(N_GRN,OUTPUT);
+  pinMode(S_RED,OUTPUT); pinMode(S_YEL,OUTPUT); pinMode(S_GRN,OUTPUT);
+  pinMode(E_RED,OUTPUT); pinMode(E_YEL,OUTPUT); pinMode(E_GRN,OUTPUT);
+  pinMode(W_RED,OUTPUT); pinMode(W_YEL,OUTPUT); pinMode(W_GRN,OUTPUT);
+  allRed();          // Safe default: all red at startup
+  Serial.begin(9600);
+}
+
+// Turn ALL roads RED (called during transitions)
+void allRed() {
+  digitalWrite(N_RED,HIGH); digitalWrite(N_YEL,LOW); digitalWrite(N_GRN,LOW);
+  digitalWrite(S_RED,HIGH); digitalWrite(S_YEL,LOW); digitalWrite(S_GRN,LOW);
+  digitalWrite(E_RED,HIGH); digitalWrite(E_YEL,LOW); digitalWrite(E_GRN,LOW);
+  digitalWrite(W_RED,HIGH); digitalWrite(W_YEL,LOW); digitalWrite(W_GRN,LOW);
+}
+
+// Give GREEN to one road, then transition via YELLOW back to RED
+// rPin=Red, yPin=Yellow, gPin=Green, duration=green time in ms
+void setGreen(int rPin, int yPin, int gPin, int duration) {
+  allRed();                   // All roads RED first
+  digitalWrite(rPin, LOW);    // This road: turn red OFF
+  digitalWrite(gPin, HIGH);   // This road: turn green ON
+  delay(duration);            // Stay green
+  digitalWrite(gPin, LOW);    // Green OFF
+  digitalWrite(yPin, HIGH);   // Yellow ON (warning for 2 sec)
+  delay(2000);
+  digitalWrite(yPin, LOW);    // Yellow OFF
+  digitalWrite(rPin, HIGH);   // Back to RED
+}
+
+void loop() {
+  Serial.println("North GREEN");
+  setGreen(N_RED, N_YEL, N_GRN, 10000);  // 10 seconds
+
+  Serial.println("South GREEN");
+  setGreen(S_RED, S_YEL, S_GRN, 10000);
+
+  Serial.println("East GREEN");
+  setGreen(E_RED, E_YEL, E_GRN, 10000);
+
+  Serial.println("West GREEN");
+  setGreen(W_RED, W_YEL, W_GRN, 10000);
+}
