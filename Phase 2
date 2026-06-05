@@ -1,0 +1,129 @@
+// =====================================================
+// AI-Based Smart Traffic Signal System
+// Phase 2: Density-Weighted Priority Scheduling
+// Author: ECE Student Project
+// =====================================================
+
+// ---- PIN DEFINITIONS (2D array: [road][R/Y/G]) ----
+const int LEDS[4][3] = {
+  {2, 3, 4},    // Road 0 = North:  R=2, Y=3, G=4
+  {5, 6, 7},    // Road 1 = South:  R=5, Y=6, G=7
+  {8, 9, 10},   // Road 2 = East:   R=8, Y=9, G=10
+  {11, 12, 13}  // Road 3 = West:   R=11,Y=12,G=13
+};
+
+// ---- SENSOR PINS (Analog inputs) ----
+const int SENSORS[4] = {A0, A1, A2, A3};
+const char* NAMES[4]  = {"North", "South", "East", "West"};
+
+// ---- AI TIMING PARAMETERS ----
+const int MIN_GREEN   = 5000;   // 5  seconds minimum green
+const int MAX_GREEN   = 60000;  // 60 seconds maximum green
+const int YELLOW_TIME = 2000;   // 2  seconds yellow always
+
+// ---- GLOBAL VARIABLES ----
+int density[4];   // Stores raw sensor value (0-1023) per road
+int order[4];     // Stores road indices sorted by priority
+
+// ============================================
+void setup() {
+  for (int r = 0; r < 4; r++) {
+    for (int l = 0; l < 3; l++) {
+      pinMode(LEDS[r][l], OUTPUT);  // Set all LED pins as OUTPUT
+    }
+    order[r] = r;  // Initial order: 0,1,2,3 (N,S,E,W)
+  }
+  allRed();              // Safe start: all roads RED
+  Serial.begin(9600);
+  Serial.println("=== AI Traffic System Started ===");
+}
+
+// ============================================
+// FUNCTION A: Read all 4 sensor values
+// analogRead() returns 0-1023 based on potentiometer knob
+// ============================================
+void readDensities() {
+  Serial.println("--- Reading Densities ---");
+  for (int i = 0; i < 4; i++) {
+    density[i] = analogRead(SENSORS[i]);
+    Serial.print(NAMES[i]); Serial.print(" = ");
+    Serial.println(density[i]);
+  }
+}
+
+// ============================================
+// FUNCTION B: Sort roads by density (highest first)
+// Uses Bubble Sort algorithm on 4 elements
+// ============================================
+void sortByPriority() {
+  for (int i = 0; i < 4; i++) order[i] = i; // Reset order
+  // Bubble Sort: compare adjacent, swap if needed
+  for (int i = 0; i < 3; i++) {
+    for (int j = 0; j < 3 - i; j++) {
+      if (density[order[j]] < density[order[j+1]]) {
+        int tmp = order[j];
+        order[j] = order[j+1];
+        order[j+1] = tmp;
+      }
+    }
+  }
+  Serial.print("Priority: ");
+  for (int i = 0; i < 4; i++) {
+    Serial.print(NAMES[order[i]]); Serial.print(" ");
+  }
+  Serial.println();
+}
+
+// ============================================
+// FUNCTION C: Calculate green time from density
+// map() does: ((density - 0) * (MAX-MIN) / (1023-0)) + MIN
+// ============================================
+int calcGreenTime(int roadDensity) {
+  return map(roadDensity, 0, 1023, MIN_GREEN, MAX_GREEN);
+}
+
+// ============================================
+// SIGNAL CONTROL: All roads RED
+// ============================================
+void allRed() {
+  for (int r = 0; r < 4; r++) {
+    digitalWrite(LEDS[r][0], HIGH); // RED on
+    digitalWrite(LEDS[r][1], LOW);  // YELLOW off
+    digitalWrite(LEDS[r][2], LOW);  // GREEN off
+  }
+}
+
+// ============================================
+// SIGNAL CONTROL: Give green to one road
+// ============================================
+void setGreenForRoad(int road, int greenMs) {
+  allRed();
+  digitalWrite(LEDS[road][0], LOW);   // RED off
+  digitalWrite(LEDS[road][2], HIGH);  // GREEN on
+  Serial.print("GREEN: "); Serial.print(NAMES[road]);
+  Serial.print(" for "); Serial.print(greenMs/1000);
+  Serial.println(" seconds");
+  delay(greenMs);                     // Stay green
+  digitalWrite(LEDS[road][2], LOW);   // GREEN off
+  digitalWrite(LEDS[road][1], HIGH);  // YELLOW on
+  delay(YELLOW_TIME);
+  digitalWrite(LEDS[road][1], LOW);   // YELLOW off
+  digitalWrite(LEDS[road][0], HIGH);  // RED on (back to red)
+}
+
+// ============================================
+// MAIN LOOP: AI Cycle repeats forever
+// ============================================
+void loop() {
+  Serial.println("\n=== New AI Cycle ===");
+  readDensities();   // Step A: Read 4 sensors
+  sortByPriority();  // Step B: Sort by density (AI decision)
+
+  // Step C: Execute signals in AI-determined priority order
+  for (int i = 0; i < 4; i++) {
+    int road  = order[i];
+    int gTime = calcGreenTime(density[road]);
+    setGreenForRoad(road, gTime);
+  }
+}
+
